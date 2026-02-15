@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"bufio"
 	"eusurveymgr/client"
 	"eusurveymgr/log"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -28,6 +30,21 @@ as the server generates PDFs as a side-effect.`,
 		formID, _ := cmd.Flags().GetString("id")
 		outFile, _ := cmd.Flags().GetString("output")
 		showIDs, _ := cmd.Flags().GetBool("showids")
+		yes, _ := cmd.Flags().GetBool("yes")
+
+		if !yes {
+			fmt.Fprintf(os.Stderr, "WARNING: This triggers a server-side export for survey %q that generates\n", formID)
+			fmt.Fprintf(os.Stderr, "a PDF for every respondent in that survey. It can take a very long time\n")
+			fmt.Fprintf(os.Stderr, "and puts heavy load on the server.\n")
+			fmt.Fprintf(os.Stderr, "Consider using 'db answers' + 'pdf answer' for individual respondents.\n\n")
+			fmt.Fprintf(os.Stderr, "Continue? [y/N] ")
+			reader := bufio.NewReader(os.Stdin)
+			answer, _ := reader.ReadString('\n')
+			if strings.TrimSpace(strings.ToLower(answer)) != "y" {
+				return fmt.Errorf("aborted")
+			}
+		}
+
 		c := client.New(cfg)
 
 		log.Infof("Preparing results export for survey %s...", formID)
@@ -59,6 +76,7 @@ func init() {
 	resultsExportCmd.Flags().String("id", "", "Survey/form ID")
 	resultsExportCmd.Flags().String("output", "", "Output file (default: results-<id>.xml)")
 	resultsExportCmd.Flags().Bool("showids", true, "Include answer set IDs")
+	resultsExportCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 	resultsExportCmd.MarkFlagRequired("id")
 
 	resultsCmd.AddCommand(resultsExportCmd)

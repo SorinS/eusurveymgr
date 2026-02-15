@@ -22,7 +22,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "eusurveymgr",
 	Short: "EUSurvey Management CLI",
-	Long: `eusurveymgr — EUSurvey Management CLI for surveys, results, PDFs, tokens, and database queries.
+	Long: `eusurveymgr — EUSurvey Management CLI for surveys, results, PDFs, and database queries.
 
 Environment variables override config file values (avoids exposing credentials):
   EUSURVEYMGR_WEB_USER, EUSURVEYMGR_WEB_PASSWORD
@@ -65,7 +65,6 @@ func init() {
 	rootCmd.AddCommand(surveysCmd)
 	rootCmd.AddCommand(resultsCmd)
 	rootCmd.AddCommand(pdfCmd)
-	rootCmd.AddCommand(tokensCmd)
 	rootCmd.AddCommand(dbCmd)
 }
 
