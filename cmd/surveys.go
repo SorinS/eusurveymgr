@@ -13,11 +13,15 @@ import (
 var surveysCmd = &cobra.Command{
 	Use:   "surveys",
 	Short: "Manage surveys via WebService API",
+	Long:  "Query the EUSurvey WebService API to list surveys and retrieve metadata.",
 }
 
 var surveysListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List surveys",
+	Long:  "List all surveys for the authenticated user via the WebService API.",
+	Example: `  eusurveymgr surveys list
+  eusurveymgr surveys list --json`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		jsonOut, _ := cmd.Flags().GetBool("json")
 		c := client.New(cfg)
@@ -34,10 +38,9 @@ var surveysListCmd = &cobra.Command{
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
-		fmt.Fprintln(w, "ALIAS\tTITLE\tSTATE\tANSWERS\tSTART\tEND")
+		fmt.Fprintln(w, "ALIAS\tTITLE")
 		for _, s := range list.Surveys {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n",
-				s.Alias, s.Title, s.State, s.NumAnswers, s.Start, s.End)
+			fmt.Fprintf(w, "%s\t%s\n", s.Alias, s.Title)
 		}
 		return w.Flush()
 	},
@@ -46,6 +49,9 @@ var surveysListCmd = &cobra.Command{
 var surveysInfoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Get survey metadata",
+	Long:  "Retrieve detailed metadata for a survey by its alias (shortname).",
+	Example: `  eusurveymgr surveys info --alias Check4SkillsInRomana
+  eusurveymgr surveys info --alias Check4SkillsInEnglish --json`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		alias, _ := cmd.Flags().GetString("alias")
 		jsonOut, _ := cmd.Flags().GetBool("json")
@@ -62,16 +68,16 @@ var surveysInfoCmd = &cobra.Command{
 			return enc.Encode(meta)
 		}
 
+		fmt.Printf("ID:         %s\n", meta.ID)
 		fmt.Printf("Alias:      %s\n", meta.Alias)
 		fmt.Printf("Title:      %s\n", meta.Title)
-		fmt.Printf("State:      %s\n", meta.State)
+		fmt.Printf("Type:       %s\n", meta.SurveyType)
+		fmt.Printf("Status:     %s\n", meta.Status)
 		fmt.Printf("Language:   %s\n", meta.Language)
 		fmt.Printf("Security:   %s\n", meta.Security)
-		fmt.Printf("Answers:    %d\n", meta.NumAnswers)
+		fmt.Printf("Visibility: %s\n", meta.Visibility)
+		fmt.Printf("Results:    %d\n", meta.Results)
 		fmt.Printf("Contact:    %s\n", meta.Contact)
-		fmt.Printf("Created:    %s\n", meta.Created)
-		fmt.Printf("Published:  %s\n", meta.Published)
-		fmt.Printf("Updated:    %s\n", meta.Updated)
 		fmt.Printf("Start:      %s\n", meta.Start)
 		fmt.Printf("End:        %s\n", meta.End)
 		return nil

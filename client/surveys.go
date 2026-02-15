@@ -1,51 +1,70 @@
 package client
 
 import (
+	"bytes"
 	"encoding/xml"
 	"fmt"
+	"unicode/utf8"
 )
 
-// XML response types for /webservice/getSurveys
+// XML response types for /webservice/getMySurveys
 type SurveyList struct {
-	XMLName xml.Name `xml:"surveys"`
-	Surveys []Survey `xml:"survey"`
+	XMLName xml.Name `xml:"Surveys"`
+	User    string   `xml:"user,attr" json:"user"`
+	Surveys []Survey `xml:"Survey"`
 }
 
 type Survey struct {
-	Alias       string `xml:"alias" json:"alias"`
-	Title       string `xml:"title" json:"title"`
-	State       string `xml:"state" json:"state"`
-	NumAnswers  int    `xml:"numberOfAnswers" json:"number_of_answers"`
-	Start       string `xml:"start" json:"start"`
-	End         string `xml:"end" json:"end"`
-	CreatedDate string `xml:"createdDate" json:"created_date"`
+	UID   string `xml:"uid,attr" json:"uid"`
+	Alias string `xml:"alias,attr" json:"alias"`
+	Title string `xml:"Title" json:"title"`
 }
 
-// XML response for /webservice/getSurveyMetadata
+// XML response for /webservice/getSurveyMetadata/{alias}
 type SurveyMetadata struct {
-	XMLName    xml.Name `xml:"survey"`
-	Alias      string   `xml:"alias"`
-	Title      string   `xml:"title"`
-	State      string   `xml:"state"`
-	NumAnswers int      `xml:"numberOfAnswers"`
-	Start      string   `xml:"start"`
-	End        string   `xml:"end"`
-	Created    string   `xml:"createdDate"`
-	Updated    string   `xml:"updatedDate"`
-	Published  string   `xml:"publishedDate"`
-	Contact    string   `xml:"contact"`
-	Language   string   `xml:"language"`
-	Security   string   `xml:"security"`
+	XMLName    xml.Name `xml:"Survey"`
+	ID         string   `xml:"id,attr" json:"id"`
+	Alias      string   `xml:"alias,attr" json:"alias"`
+	SurveyType string   `xml:"SurveyType" json:"survey_type"`
+	Title      string   `xml:"Title" json:"title"`
+	Language   string   `xml:"PivotLanguage" json:"language"`
+	Contact    string   `xml:"Contact" json:"contact"`
+	Status     string   `xml:"Status" json:"status"`
+	Start      string   `xml:"Start" json:"start"`
+	End        string   `xml:"End" json:"end"`
+	Results    int      `xml:"Results" json:"results"`
+	Security   string   `xml:"Security" json:"security"`
+	Visibility string   `xml:"Visibility" json:"visibility"`
+}
+
+// sanitizeXML replaces invalid UTF-8 bytes with the Unicode replacement character.
+// EUSurvey sometimes returns Latin-1 data inside UTF-8 declared XML.
+func sanitizeXML(data []byte) []byte {
+	if utf8.Valid(data) {
+		return data
+	}
+	var buf bytes.Buffer
+	buf.Grow(len(data))
+	for len(data) > 0 {
+		r, size := utf8.DecodeRune(data)
+		if r == utf8.RuneError && size == 1 {
+			buf.WriteRune('\uFFFD')
+		} else {
+			buf.WriteRune(r)
+		}
+		data = data[size:]
+	}
+	return buf.Bytes()
 }
 
 func (c *Client) GetSurveys() (*SurveyList, error) {
-	data, err := c.doBasicGet("/webservice/getSurveys")
+	data, err := c.doBasicGet("/webservice/getMySurveys")
 	if err != nil {
-		return nil, fmt.Errorf("getSurveys: %w", err)
+		return nil, fmt.Errorf("getMySurveys: %w", err)
 	}
 	var list SurveyList
-	if err := xml.Unmarshal(data, &list); err != nil {
-		return nil, fmt.Errorf("parsing getSurveys XML: %w", err)
+	if err := xml.Unmarshal(sanitizeXML(data), &list); err != nil {
+		return nil, fmt.Errorf("parsing getMySurveys XML: %w", err)
 	}
 	return &list, nil
 }
@@ -56,7 +75,7 @@ func (c *Client) GetSurveyMetadata(alias string) (*SurveyMetadata, error) {
 		return nil, fmt.Errorf("getSurveyMetadata: %w", err)
 	}
 	var meta SurveyMetadata
-	if err := xml.Unmarshal(data, &meta); err != nil {
+	if err := xml.Unmarshal(sanitizeXML(data), &meta); err != nil {
 		return nil, fmt.Errorf("parsing getSurveyMetadata XML: %w", err)
 	}
 	return &meta, nil

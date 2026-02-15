@@ -75,5 +75,6 @@ func (c *Client) IsAnswerPDFReady(uniqueCode string) (bool, error) {
 	body, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 
-	return string(body) == "OK", nil
+	result := string(body)
+	return result == "exists" || result == "OK", nil
 }

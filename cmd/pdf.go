@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -14,11 +15,15 @@ import (
 var pdfCmd = &cobra.Command{
 	Use:   "pdf",
 	Short: "Download PDF documents",
+	Long:  "Download survey form PDFs or generate and download individual answer PDFs.",
 }
 
 var pdfSurveyCmd = &cobra.Command{
 	Use:   "survey",
 	Short: "Download survey form PDF",
+	Long:  "Download the survey form as a PDF file via the WebService API.",
+	Example: `  eusurveymgr pdf survey --alias Check4SkillsInRomana
+  eusurveymgr pdf survey --alias Check4SkillsInEnglish --output survey-en.pdf`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		alias, _ := cmd.Flags().GetString("alias")
 		outFile, _ := cmd.Flags().GetString("output")
@@ -46,10 +51,14 @@ var pdfSurveyCmd = &cobra.Command{
 var pdfAnswerCmd = &cobra.Command{
 	Use:   "answer",
 	Short: "Generate and download answer PDF",
-	Long: `Generate and download answer PDF.
+	Long: `Generate and download an answer PDF for a specific respondent.
 
 Provide either --code for a known UNIQUECODE, or --email and --survey
-to look up the code from the database.`,
+to look up the code from the database. Skips generation if the PDF
+already exists on the server.`,
+	Example: `  eusurveymgr pdf answer --code ae8d5fec-daaf-4aba-b860-544d1f717d8a
+  eusurveymgr pdf answer --email user@example.com --survey 4578
+  eusurveymgr pdf answer --email user@example.com --survey 4578 --output ./pdfs`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		code, _ := cmd.Flags().GetString("code")
 		email, _ := cmd.Flags().GetString("email")
@@ -83,9 +92,40 @@ to look up the code from the database.`,
 			return fmt.Errorf("provide either --code or --email (with --survey)")
 		}
 
-		log.Infof("Triggering PDF generation for %s...", uniqueCode)
-		if err := c.CreateAnswerPDF(uniqueCode); err != nil {
-			return err
+		// Check if PDF already exists before triggering generation
+		ready, err := c.IsAnswerPDFReady(uniqueCode)
+		if err != nil {
+			return fmt.Errorf("checking PDF readiness: %w", err)
+		}
+
+		if !ready {
+			log.Infof("Triggering PDF generation for %s...", uniqueCode)
+			if err := c.CreateAnswerPDF(uniqueCode); err != nil {
+				return err
+			}
+
+			log.Infof("Waiting for PDF to be ready...")
+			deadline := time.Now().Add(time.Duration(cfg.TimeoutSeconds) * time.Second)
+			delay := time.Second
+			for {
+				ready, err = c.IsAnswerPDFReady(uniqueCode)
+				if err != nil {
+					return fmt.Errorf("checking PDF readiness: %w", err)
+				}
+				if ready {
+					break
+				}
+				if time.Now().After(deadline) {
+					return fmt.Errorf("PDF generation timed out after %ds", cfg.TimeoutSeconds)
+				}
+				log.Debugf("PDF not ready yet, retrying in %v...", delay)
+				time.Sleep(delay)
+				if delay < 5*time.Second {
+					delay += time.Second
+				}
+			}
+		} else {
+			log.Infof("PDF already exists for %s", uniqueCode)
 		}
 
 		log.Infof("Downloading PDF...")

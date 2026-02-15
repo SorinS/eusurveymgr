@@ -6,28 +6,26 @@ import (
 )
 
 type SurveyRow struct {
-	SurveyID   int64
-	Title      string
-	Shortname  string
-	SurveyUID  string
-	Created    sql.NullString
-	StartDate  sql.NullString
-	EndDate    sql.NullString
-	Published  bool
+	SurveyID  int64
+	Title     string
+	Alias     string
+	SurveyUID string
+	Created   sql.NullString
+	Published bool
 	NumAnswers int
 }
 
 func ListSurveys(db *sql.DB) ([]SurveyRow, error) {
+	// Only show the latest version of each survey (max SURVEY_ID per SURVEY_UID)
 	query := `
-		SELECT s.SURVEY_ID, s.TITLE, COALESCE(s.SHORTNAME,'') as SHORTNAME,
-		       COALESCE(s.SURVEY_UID,'') as SURVEY_UID,
-		       s.SURVEY_CREATED, s.SURVEY_START_DATE, s.SURVEY_END_DATE,
-		       s.ISPUBLISHED,
-		       COUNT(a.ANSWER_SET_ID) as num_answers
+		SELECT s.SURVEY_ID, COALESCE(s.TITLE,'') as TITLE,
+		       s.SURVEYNAME as ALIAS, s.SURVEY_UID,
+		       s.SURVEY_CREATED, COALESCE(s.ISPUBLISHED, 0),
+		       (SELECT COUNT(*) FROM ANSWERS_SET a WHERE a.SURVEY_ID = s.SURVEY_ID) as num_answers
 		FROM SURVEYS s
-		LEFT JOIN ANSWERS_SET a ON a.SURVEY_ID = s.SURVEY_ID
-		GROUP BY s.SURVEY_ID, s.TITLE, s.SHORTNAME, s.SURVEY_UID,
-		         s.SURVEY_CREATED, s.SURVEY_START_DATE, s.SURVEY_END_DATE, s.ISPUBLISHED
+		WHERE s.SURVEY_ID = (
+		    SELECT MAX(s2.SURVEY_ID) FROM SURVEYS s2 WHERE s2.SURVEY_UID = s.SURVEY_UID
+		)
 		ORDER BY s.SURVEY_CREATED DESC`
 
 	rows, err := db.Query(query)
@@ -39,8 +37,8 @@ func ListSurveys(db *sql.DB) ([]SurveyRow, error) {
 	var surveys []SurveyRow
 	for rows.Next() {
 		var s SurveyRow
-		if err := rows.Scan(&s.SurveyID, &s.Title, &s.Shortname, &s.SurveyUID,
-			&s.Created, &s.StartDate, &s.EndDate, &s.Published, &s.NumAnswers); err != nil {
+		if err := rows.Scan(&s.SurveyID, &s.Title, &s.Alias, &s.SurveyUID,
+			&s.Created, &s.Published, &s.NumAnswers); err != nil {
 			return nil, fmt.Errorf("scanning survey row: %w", err)
 		}
 		surveys = append(surveys, s)

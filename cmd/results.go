@@ -12,11 +12,18 @@ import (
 var resultsCmd = &cobra.Command{
 	Use:   "results",
 	Short: "Export survey results",
+	Long:  "Export survey results via the WebService API (async server-side operation).",
 }
 
 var resultsExportCmd = &cobra.Command{
 	Use:   "export",
 	Short: "Export survey results to XML",
+	Long: `Start an async results export on the server and poll until complete.
+Accepts both numeric survey IDs and aliases. Can be slow for large surveys
+as the server generates PDFs as a side-effect.`,
+	Example: `  eusurveymgr results export --id Check4SkillsInRomana
+  eusurveymgr results export --id 4578 --output results-ro.xml
+  eusurveymgr results export --id Check4SkillsInEnglish --showids=false`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		formID, _ := cmd.Flags().GetString("id")
 		outFile, _ := cmd.Flags().GetString("output")

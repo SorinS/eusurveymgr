@@ -12,12 +12,18 @@ import (
 
 var tokensCmd = &cobra.Command{
 	Use:   "tokens",
-	Short: "Manage invitation tokens",
+	Short: "Manage invitation tokens (BROKEN — endpoints don't exist upstream)",
+	Long: `Manage invitation tokens for surveys.
+
+WARNING: These commands are currently broken. The upstream EUSurvey source
+has no getTokens or createToken endpoints. Token management uses a group-based
+API that requires a different implementation.`,
 }
 
 var tokensListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List invitation tokens",
+	Use:     "list",
+	Short:   "List invitation tokens",
+	Example: "  eusurveymgr tokens list --survey Check4SkillsInRomana",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		survey, _ := cmd.Flags().GetString("survey")
 		jsonOut, _ := cmd.Flags().GetBool("json")
@@ -43,8 +49,9 @@ var tokensListCmd = &cobra.Command{
 }
 
 var tokensCreateCmd = &cobra.Command{
-	Use:   "create",
-	Short: "Create new invitation token",
+	Use:     "create",
+	Short:   "Create new invitation token",
+	Example: "  eusurveymgr tokens create --survey Check4SkillsInRomana",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		survey, _ := cmd.Flags().GetString("survey")
 		c := client.New(cfg)

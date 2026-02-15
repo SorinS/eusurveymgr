@@ -28,18 +28,24 @@ func (c *Client) GetResults(taskID string, timeoutSeconds int) ([]byte, error) {
 	delay := 1 * time.Second
 
 	for {
-		data, err := c.doBasicGet("/webservice/getResults/" + taskID)
+		data, status, err := c.doBasicGetStatus("/webservice/getResults/" + taskID)
 		if err != nil {
 			if time.Now().After(deadline) {
 				return nil, fmt.Errorf("getResults timed out after %ds: %w", timeoutSeconds, err)
 			}
 			log.Debugf("Results not ready yet, retrying in %v...", delay)
-			time.Sleep(delay)
-			if delay < 5*time.Second {
-				delay += time.Second
+		} else if status == 204 {
+			// 204 No Content = export still in progress
+			if time.Now().After(deadline) {
+				return nil, fmt.Errorf("getResults timed out after %ds (still 204)", timeoutSeconds)
 			}
-			continue
+			log.Debugf("Export in progress (HTTP 204), retrying in %v...", delay)
+		} else {
+			return data, nil
 		}
-		return data, nil
+		time.Sleep(delay)
+		if delay < 5*time.Second {
+			delay += time.Second
+		}
 	}
 }
